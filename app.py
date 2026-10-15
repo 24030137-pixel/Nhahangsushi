@@ -742,5 +742,269 @@ elif page == "📊 Báo cáo doanh thu":
         """, con)
 
         best = pd.read_sql_query("""
-        SELECT oi.name AS Tên_món,SUM(oi.quantity) AS Số_lượng,
-               SUM(oi.line_total)
+        SELECT oi.name AS Tên_món, SUM(oi.quantity) AS Số_lượng,
+               SUM(oi.line_total) AS Doanh_thu
+        FROM order_items oi JOIN orders o ON oi.order_id=o.id
+        WHERE o.status='Đã thanh toán'
+        GROUP BY oi.name ORDER BY Số_lượng DESC LIMIT 10
+        """, con)
+
+    a, b, c, d = st.columns(4)
+    a.metric("Đơn hôm nay", f"{today_data[0]:,}")
+    b.metric("Doanh thu hôm nay", money(today_data[1]))
+    c.metric("Tổng đơn", f"{all_data[0]:,}")
+    d.metric("Tổng doanh thu", money(all_data[1]))
+
+    st.markdown("### 📈 Doanh thu theo ngày")
+    if not daily.empty:
+        st.bar_chart(daily.set_index("Ngày")["Doanh_thu"])
+        st.dataframe(daily, use_container_width=True, hide_index=True)
+    else:
+        st.info("Chưa có dữ liệu doanh thu.")
+
+    st.markdown("### 🏆 Top món bán chạy")
+    if not best.empty:
+        best["Doanh_thu"] = best["Doanh_thu"].apply(money)
+        st.dataframe(best, use_container_width=True, hide_index=True)
+    else:
+        st.info("Chưa có dữ liệu món bán.")
+
+
+# ==================================================
+# LỊCH SỬ HÓA ĐƠN
+# ==================================================
+
+elif page == "🗂️ Lịch sử hóa đơn":
+
+    st.markdown(
+        '<div class="section-title">🗂️ LỊCH SỬ HÓA ĐƠN</div>',
+        unsafe_allow_html=True
+    )
+
+    search = st.text_input("Tìm mã hóa đơn / tên khách / số điện thoại")
+
+    with connect() as con:
+        df = pd.read_sql_query(
+            "SELECT * FROM orders ORDER BY id DESC", con
+        )
+
+    if search.strip() and not df.empty:
+        term = search.strip()
+        mask = (
+            df["code"].astype(str).str.contains(term, case=False, na=False)
+            | df["customer"].astype(str).str.contains(term, case=False, na=False)
+            | df["phone"].astype(str).str.contains(term, case=False, na=False)
+        )
+        df = df[mask]
+
+    if not df.empty:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        code = st.selectbox("Chọn hóa đơn", df["code"].tolist())
+
+        if st.button("Xem chi tiết"):
+            with connect() as con:
+                order_row = con.execute(
+                    "SELECT * FROM orders WHERE code=?", (code,)
+                ).fetchone()
+
+                item_rows = con.execute("""
+                SELECT name,category,price,quantity,line_total
+                FROM order_items WHERE order_id=?
+                """, (order_row[0],)).fetchall()
+
+            items = [{
+                "name": r[0], "category": r[1], "price": r[2],
+                "quantity": r[3], "line_total": r[4]
+            } for r in item_rows]
+
+            order = {
+                "code": order_row[1],
+                "customer": order_row[2],
+                "phone": order_row[3],
+                "table": order_row[4],
+                "created_at": order_row[5],
+                "subtotal": order_row[6],
+                "discount": order_row[7],
+                "total": order_row[8],
+                "points": order_row[9],
+                "payment": order_row[11]
+            }
+
+            st.write(f"Khách hàng: {order['customer']}")
+            st.write(f"Tổng thanh toán: {money(order['total'])}")
+            st.dataframe(pd.DataFrame(items), use_container_width=True, hide_index=True)
+
+            st.download_button(
+                "📥 Tải lại hóa đơn",
+                data=invoice_html(order, items).encode("utf-8"),
+                file_name=f"hoa_don_{code}.html",
+                mime="text/html"
+            )
+
+        st.download_button(
+            "📥 Xuất lịch sử CSV",
+            data=df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="lich_su_hoa_don_n2_sushi.csv",
+            mime="text/csv"
+        )
+    else:
+        st.info("Chưa có hóa đơn phù hợp.")
+
+
+# ==================================================
+# CHATBOT N2 SUSHI - TƯ VẤN BEST SELLER & MÓN RẺ
+# ==================================================
+
+elif page == "💬 Chatbot tư vấn":
+
+    st.markdown(
+        '<div class="section-title">💬 TRỢ LÝ N2 SUSHI</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown("""
+    <div class="chat-panel">
+    <h3>🍣 N2 Sushi Assistant</h3>
+    <p style="color:#d0c4b8">
+    Tư vấn Best Seller · Gợi ý món giá rẻ · Giờ mở cửa · Địa chỉ · Voucher
+    </p></div>
+    """, unsafe_allow_html=True)
+
+    def reply(question):
+        q = question.lower().strip()
+        menu = get_menu()
+
+        if any(k in q for k in ["chào", "hello", "hi"]):
+            return "Xin chào! 🍣 Chào mừng bạn đến với N2 Sushi. Bạn cần mình tư vấn món best seller hay món giá rẻ nào không?"
+
+        if any(k in q for k in ["giờ", "mở cửa", "đóng cửa", "mấy giờ"]):
+            return f"🕒 Giờ mở cửa của N2 Sushi: {SHOP['hours']}."
+
+        if any(k in q for k in ["địa chỉ", "ở đâu", "đường nào"]):
+            return f"📍 Địa chỉ N2 Sushi: {SHOP['address']}."
+
+        if any(k in q for k in ["số điện thoại", "hotline", "liên hệ", "gọi"]):
+            return f"☎️ Bạn có thể liên hệ quán qua số {SHOP['phone']}."
+
+        if any(k in q for k in ["voucher", "giảm giá", "khuyến mãi"]):
+            return (
+                "🎟️ Voucher trong hệ thống:\n"
+                "• N2WELCOME: giảm 10%, tối đa 50.000đ.\n"
+                "• SUSHI20: giảm 20.000đ cho đơn từ 200.000đ.\n"
+                "• N2VIP: giảm 15%, tối đa 100.000đ cho đơn từ 500.000đ."
+            )
+
+        if any(k in q for k in ["tích điểm", "điểm", "thành viên"]):
+            return "⭐ Mỗi 10.000đ thanh toán được cộng 1 điểm theo chính sách mẫu của app."
+
+        # GỢI Ý MÓN BEST SELLER
+        if any(k in q for k in ["best seller", "bán chạy", "ngon nhất", "nên ăn gì"]):
+            best = menu[(menu["bestseller"] == 1) & (menu["active"] == 1)]
+            return "⭐ **Các món Best Seller được yêu thích nhất tại quán:**\n" + "\n".join(
+                f"• {r['name']}: {money(r['price'])}"
+                for _, r in best.iterrows()
+            )
+
+        # GỢI Ý MÓN RẺ / TIẾT KIỆM
+        if any(k in q for k in ["rẻ", "tiết kiệm", "bình dân", "giá rẻ", "ít tiền"]):
+            cheap = menu[(menu["price"] <= 40000) & (menu["active"] == 1)].sort_values("price")
+            return "💸 **Gợi ý các món giá rẻ, tiết kiệm (dưới 40.000đ):**\n" + "\n".join(
+                f"• {r['name']}: {money(r['price'])}"
+                for _, r in cheap.iterrows()
+            )
+
+        if any(k in q for k in ["combo", "đi hai người", "gia đình", "đi nhóm"]):
+            combos = menu[(menu["category"] == "Combo") & (menu["active"] == 1)]
+            return "🎎 Combo hiện có:\n" + "\n".join(
+                f"• {r['name']}: {money(r['price'])}"
+                for _, r in combos.iterrows()
+            )
+
+        if any(k in q for k in ["menu", "thực đơn", "có món gì", "giá món"]):
+            return "🍱 Menu N2 Sushi:\n" + "\n".join(
+                f"• {r['name']}: {money(r['price'])}"
+                for _, r in menu[menu["active"] == 1].iterrows()
+            )
+
+        for keyword, category in [
+            ("sushi", "Sushi"),
+            ("sashimi", "Sashimi"),
+            ("ramen", "Món nóng"),
+            ("tempura", "Món nóng"),
+            ("nước", "Thức uống"),
+            ("uống", "Thức uống")
+        ]:
+            if keyword in q:
+                subset = menu[
+                    (menu["category"] == category)
+                    & (menu["active"] == 1)
+                ]
+                return f"🍣 Các lựa chọn {category}:\n" + "\n".join(
+                    f"• {r['name']}: {money(r['price'])}"
+                    for _, r in subset.iterrows()
+                )
+
+        matched = menu[
+            menu["name"].str.lower().str.contains(q, regex=False, na=False)
+        ]
+        if not matched.empty:
+            return "\n".join(
+                f"• {r['name']}: {money(r['price'])}"
+                for _, r in matched.iterrows()
+            )
+
+        return (
+            "Mình chưa hiểu câu hỏi này. 😊 Bạn có thể thử hỏi:\n"
+            "• Món best seller?\n• Gợi ý món giá rẻ?\n"
+            "• Combo cho 2 người?\n• Giờ mở cửa?\n"
+            "• Địa chỉ quán?\n• Voucher nào đang dùng được?"
+        )
+
+    for msg in st.session_state.chat:
+        if msg["role"] == "user":
+            st.markdown(
+                '<div class="chat-user">👤 '
+                + html.escape(msg["text"]).replace("\n", "<br>")
+                + '</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                '<div class="chat-bubble">🍣 '
+                + html.escape(msg["text"]).replace("\n", "<br>")
+                + '</div>',
+                unsafe_allow_html=True
+            )
+
+    st.markdown("### ⚡ Câu hỏi nhanh")
+
+    questions = [
+        "Món best seller", "Gợi ý món giá rẻ", "Combo",
+        "Voucher", "Giờ mở cửa", "Địa chỉ quán"
+    ]
+
+    cols = st.columns(3)
+    for i, question in enumerate(questions):
+        with cols[i % 3]:
+            if st.button(question, key=f"quick_{i}", use_container_width=True):
+                st.session_state.chat.append({
+                    "role": "user", "text": question
+                })
+                st.session_state.chat.append({
+                    "role": "assistant", "text": reply(question)
+                })
+                st.rerun()
+
+    with st.form("chat_form", clear_on_submit=True):
+        question = st.text_input(
+            "Nhập câu hỏi",
+            placeholder="VD: Gợi ý cho mình vài món giá rẻ hoặc best seller?"
+        )
+        send = st.form_submit_button("Gửi tin nhắn ✉️", use_container_width=True)
+        
+        if send and question.strip():
+            st.session_state.chat.append({"role": "user", "text": question})
+            st.session_state.chat.append({"role": "assistant", "text": reply(question)})
+            st.rerun()
+        
