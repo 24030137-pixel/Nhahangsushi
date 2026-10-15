@@ -28,7 +28,7 @@ SHOP = {
 }
 
 # ==================================================
-# GIAO DIỆN & CSS
+# GIAO DIỆN & CSS (TÙY CHỈNH Ô CARD MÓN ĂN)
 # ==================================================
 
 st.markdown("""
@@ -120,6 +120,39 @@ div.stButton > button[kind="primary"] {
     margin: 9px 0;
     line-height: 1.7;
 }
+
+/* Style cho Card Món Ăn dạng ô */
+.food-card {
+    background: white;
+    border: 1px solid #eadfd2;
+    border-radius: 14px;
+    padding: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    transition: 0.3s;
+}
+.food-card:hover {
+    box-shadow: 0 6px 12px rgba(125,31,42,0.1);
+    border-color: #7d1f2a;
+}
+.food-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #191919;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+.food-price {
+    color: #7d1f2a;
+    font-weight: 800;
+    font-size: 16px;
+}
+.food-rating {
+    color: #f59e0b;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,7 +179,8 @@ def init_db():
             price INTEGER NOT NULL,
             bestseller INTEGER DEFAULT 0,
             active INTEGER DEFAULT 1,
-            image_url TEXT
+            image_url TEXT,
+            rating TEXT DEFAULT '⭐️ 4.9 (120+ đánh giá)'
         );
 
         CREATE TABLE IF NOT EXISTS customers (
@@ -189,16 +223,55 @@ def init_db():
 
         if count == 0:
             items = [
-                ("🍣 Sushi cá hồi", "Sushi", 45000, 1, "https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi cá ngừ", "Sushi", 40000, 0, "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi lươn Nhật", "Sushi", 55000, 1, "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi tôm", "Sushi", 35000, 0, "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi thanh cua", "Sushi", 30000, 0, "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi trứng Nhật", "Sushi", 25000, 0, "https://images.unsplash.com/photo-1615361200141-f47040d283b3?auto=format&fit=crop&w=500&q=80"),
-                ("🍣 Sushi tổng hợp 8 miếng", "Sushi", 99000, 1, "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?auto=format&fit=crop&w=500&q=80"),
-                ("🐟 Sashimi cá hồi", "Sashimi", 129000, 1, "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=500&q=80"),
-                ("🐟 Sashimi cá ngừ", "Sashimi", 119000, 0, "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=500&q=80"),
-                ("🐟 Sashimi tổng hợp", "Sashimi", 189000, 1, "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=500&q=80"),
-                ("🍜 Ramen bò", "Món nóng", 89000, 1, "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=500&q=80"),
-                ("🍜 Ramen hải sản", "Món nóng", 95000, 0, "
-                 
+                ("🍣 Sushi cá hồi", "Sushi", 45000, 1, "https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (230 đánh giá)"),
+                ("🍣 Sushi cá ngừ", "Sushi", 40000, 0, "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=500&q=80", "⭐️ 4.8 (95 đánh giá)"),
+                ("🍣 Sushi lươn Nhật", "Sushi", 55000, 1, "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=500&q=80", "⭐️ 4.9 (180 đánh giá)"),
+                ("🍣 Sushi tôm", "Sushi", 35000, 0, "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=500&q=80", "⭐️ 4.7 (80 đánh giá)"),
+                ("🍣 Sushi thanh cua", "Sushi", 30000, 0, "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=500&q=80", "⭐️ 4.6 (60 đánh giá)"),
+                ("🍣 Sushi trứng Nhật", "Sushi", 25000, 0, "https://images.unsplash.com/photo-1615361200141-f47040d283b3?auto=format&fit=crop&w=500&q=80", "⭐️ 4.5 (50 đánh giá)"),
+                ("🍣 Sushi tổng hợp 8 miếng", "Sushi", 99000, 1, "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (310 đánh giá)"),
+                ("🐟 Sashimi cá hồi", "Sashimi", 129000, 1, "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (420 đánh giá)"),
+                ("🐟 Sashimi cá ngừ", "Sashimi", 119000, 0, "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=500&q=80", "⭐️ 4.8 (150 đánh giá)"),
+                ("🐟 Sashimi tổng hợp", "Sashimi", 189000, 1, "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=500&q=80", "⭐️ 4.9 (290 đánh giá)"),
+                ("🍜 Ramen bò", "Món nóng", 89000, 1, "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=500&q=80", "⭐️ 4.9 (340 đánh giá)"),
+                ("🍜 Ramen hải sản", "Món nóng", 95000, 0, "https://images.unsplash.com/photo-1591814468924-caf88d1232e1?auto=format&fit=crop&w=500&q=80", "⭐️ 4.8 (210 đánh giá)"),
+                ("🍤 Tempura tôm", "Món nóng", 79000, 1, "https://images.unsplash.com/photo-1580651202533-3d0271701383?auto=format&fit=crop&w=500&q=80", "⭐️ 4.8 (190 đánh giá)"),
+                ("🍗 Gà sốt teriyaki", "Món nóng", 69000, 0, "https://images.unsplash.com/photo-1604908176997-125f2596f3a2?auto=format&fit=crop&w=500&q=80", "⭐️ 4.7 (110 đánh giá)"),
+                ("🍚 Cơm bò Nhật", "Món nóng", 75000, 0, "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=500&q=80", "⭐️ 4.8 (145 đánh giá)"),
+                ("🥟 Há cảo Nhật", "Món nóng", 49000, 0, "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?auto=format&fit=crop&w=500&q=80", "⭐️ 4.7 (90 đánh giá)"),
+                ("🥗 Salad rong biển", "Món nóng", 39000, 0, "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=500&q=80", "⭐️ 4.6 (75 đánh giá)"),
+                ("🎎 Combo N2 Couple", "Combo", 199000, 1, "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (500+ đánh giá) - Bán chạy"),
+                ("🍱 Combo Sakura", "Combo", 299000, 1, "https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?auto=format&fit=crop&w=500&q=80", "⭐️ 4.9 (380 đánh giá)"),
+                ("👨‍👩‍👧 Combo Family 3-4 người", "Combo", 499000, 1, "https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (260 đánh giá)"),
+                ("👑 Combo Premium", "Combo", 699000, 1, "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=500&q=80", "⭐️ 5.0 (190 đánh giá) - Siêu VIP"),
+                ("🍵 Trà xanh Nhật", "Thức uống", 25000, 0, "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=500&q=80", "⭐️ 4.7 (100 đánh giá)"),
+                ("🧋 Trà đào", "Thức uống", 30000, 1, "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=500&q=80", "⭐️ 4.9 (220 đánh giá)"),
+                ("🥤 Coca-Cola", "Thức uống", 20000, 0, "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=500&q=80", "⭐️ 4.5 (40 đánh giá)"),
+                ("🍋 Nước chanh", "Thức uống", 25000, 0, "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=500&q=80", "⭐️ 4.6 (60 đánh giá)"),
+                ("🍓 Soda dâu", "Thức uống", 35000, 0, "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=500&q=80", "⭐️ 4.7 (85 đánh giá)"),
+                ("💧 Nước suối", "Thức uống", 15000, 0, "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=500&q=80", "⭐️ 4.5 (30 đánh giá)")
+            ]
+            con.executemany("""
+                INSERT INTO menu(name,category,price,bestseller,image_url,rating)
+                VALUES (?,?,?,?,?,?)
+            """, items)
+        con.commit()
+
+
+init_db()
+
+
+def get_menu(active=True):
+    with connect() as con:
+        query = "SELECT * FROM menu"
+        if active:
+            query += " WHERE active=1"
+        query += " ORDER BY category,name"
+        return pd.read_sql_query(query, con)
+
+
+def get_customer(phone):
+    if not phone.strip():
+        return None
+    with
+    
